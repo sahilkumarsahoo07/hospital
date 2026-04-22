@@ -65,15 +65,19 @@ function RootShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+import { ThemeProvider } from "@/components/theme-provider";
+
 function RootComponent() {
   const [queryClient] = useState(
     () => new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, retry: 1 } } }),
   );
   
   return (
-    <QueryClientProvider client={queryClient}>
-      <Outlet />
-      <Toaster richColors position="top-right" />
-    </QueryClientProvider>
+    <ThemeProvider defaultTheme="dark" storageKey="radiance-ui-theme">
+      <QueryClientProvider client={queryClient}>
+        <Outlet />
+        <Toaster richColors position="top-right" />
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }

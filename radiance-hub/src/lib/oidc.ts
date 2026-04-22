@@ -14,7 +14,7 @@ export function getUserManager(): UserManager {
     scope: env.oidc.scope,
     automaticSilentRenew: true,
     loadUserInfo: true,
-    userStore: new WebStorageStateStore({ store: window.localStorage }),
+    userStore: typeof window !== "undefined" ? new WebStorageStateStore({ store: window.localStorage }) : undefined,
   };
   _manager = new UserManager(settings);
   return _manager;

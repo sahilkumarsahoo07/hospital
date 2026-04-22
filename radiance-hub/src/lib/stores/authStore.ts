@@ -19,6 +19,7 @@ interface AuthState {
 
 // Low-level sync read for Zero-Flicker
 const getInitialSession = () => {
+  if (typeof window === "undefined") return { token: null, user: null, isAuthenticated: false };
   try {
     const raw = localStorage.getItem("aspire-auth-storage");
     if (!raw) return { token: null, user: null, isAuthenticated: false };

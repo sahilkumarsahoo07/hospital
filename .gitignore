@@ -8,7 +8,7 @@ radiance-hub/.tanstack/
 radiance-hub-backend/venv/
 radiance-hub-backend/**/__pycache__/
 radiance-hub-backend/**/*.pyc
-radiance-hub-backend/.env
+# radiance-hub-backend/.env
 radiance-hub-backend/instance/
 
 
