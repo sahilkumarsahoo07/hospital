@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
 import { cmsService } from "@/lib/services";
 import { useAuthStore } from "@/lib/stores/authStore";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,11 @@ const FALLBACK = {
 
 function LandingPage() {
   const { isAuthenticated } = useAuthStore();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const { data } = useQuery({
     queryKey: ["cms", "landing"],
     queryFn: () => cmsService.getLanding().catch(() => null),
@@ -54,7 +60,7 @@ function LandingPage() {
             ))}
           </nav>
           <div className="flex items-center gap-2">
-            {isAuthenticated ? (
+            {mounted && isAuthenticated ? (
               <Button asChild size="sm" className="rounded-full">
                 <Link to="/app">Open studio <ArrowRight className="ml-1 h-3.5 w-3.5" /></Link>
               </Button>
@@ -106,7 +112,7 @@ function LandingPage() {
             </p>
 
             <div className="mt-10 flex flex-col sm:flex-row gap-3">
-              {isAuthenticated ? (
+              {mounted && isAuthenticated ? (
                 <Button size="lg" asChild className="rounded-full px-8 h-12 text-base shadow-lg shadow-primary/20">
                   <Link to="/app">Open studio <ArrowRight className="ml-2 h-4 w-4" /></Link>
                 </Button>

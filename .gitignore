@@ -1,0 +1,19 @@
+# Frontend ignores
+radiance-hub/node_modules/
+radiance-hub/dist/
+radiance-hub/.env*
+radiance-hub/.tanstack/
+
+# Backend ignores
+radiance-hub-backend/venv/
+radiance-hub-backend/__pycache__/
+radiance-hub-backend/*.pyc
+radiance-hub-backend/.env
+radiance-hub-backend/instance/
+
+# General ignores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log
