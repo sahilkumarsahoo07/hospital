@@ -1,12 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuthStore } from "@/lib/stores/authStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowRight, Lock, Mail, Sparkles } from "lucide-react";
-import logo from "@/assets/aspire-logo.png";
+import { ArrowRight, Lock, Mail, Sparkles, Activity } from "lucide-react";
 
 export const Route = createFileRoute("/login")({
   component: LoginPage,
@@ -19,6 +17,15 @@ function LoginPage() {
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      setMousePos({ x: e.clientX, y: e.clientY });
+    };
+    window.addEventListener("mousemove", handleMouseMove);
+    return () => window.removeEventListener("mousemove", handleMouseMove);
+  }, []);
 
   const enableDevBypass = () => {
     setSession("dev-token", { 
@@ -30,12 +37,6 @@ function LoginPage() {
     void navigate({ to: "/app" });
   };
 
-  const login = () => {
-      // Keycloak mock
-      enableDevBypass();
-  }
-
-  // If already authenticated, redirect to app
   if (isAuthenticated) {
     void navigate({ to: "/app" });
   }
@@ -59,109 +60,125 @@ function LoginPage() {
       setSession(data.access_token, data.user);
       void navigate({ to: "/app" });
     } catch {
-      setError("Cannot connect to server. Make sure the backend is running on port 8000.");
+      setError("Cannot connect to server. Check backend connection.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen grid place-items-center bg-background p-6">
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_right,_var(--primary)_0%,_transparent_50%)] opacity-10" />
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_bottom_left,_var(--accent)_0%,_transparent_50%)] opacity-10" />
-      
-      <div className="w-full max-w-md space-y-8">
-        <div className="flex flex-col items-center text-center space-y-4">
-          <Link to="/" className="flex items-center gap-2 group">
-            <img src={logo} alt="Aspire" width={48} height={48} className="h-12 w-12 transition-transform group-hover:scale-105" />
+    <div className="min-h-screen grid place-items-center bg-background text-foreground antialiased selection:bg-primary selection:text-white overflow-hidden relative">
+      {/* NOISE & GLOW LAYER */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
+         <div className="absolute inset-0 bg-noise mix-blend-overlay opacity-[0.03] dark:opacity-[0.07]" />
+         <div className="absolute inset-0 bg-mesh animate-mesh opacity-20" />
+         <div 
+           className="absolute w-[600px] h-[600px] bg-primary/10 blur-[120px] rounded-full transition-transform duration-1000 ease-out"
+           style={{ 
+             transform: `translate(${mousePos.x - 300}px, ${mousePos.y - 300}px)`,
+           }}
+         />
+      </div>
+
+      <div className="relative z-10 w-full max-w-[400px] p-6">
+        <div className="flex flex-col items-center mb-10">
+          <Link to="/" className="flex items-center gap-3 group mb-6">
+            <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center rotate-3 group-hover:rotate-0 transition-all duration-500 shadow-lg shadow-primary/20">
+               <Activity className="h-5 w-5 text-primary-foreground" />
+            </div>
+            <span className="font-display font-black tracking-tighter text-2xl uppercase italic">Radiance</span>
           </Link>
-          <div className="space-y-1">
-            <h1 className="text-3xl font-display font-bold tracking-tight">Welcome back</h1>
-            <p className="text-muted-foreground">Sign in to your reporting workspace</p>
+          <div className="space-y-1 text-center">
+            <h1 className="text-3xl font-display font-black tracking-tight">System Access</h1>
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Initialize clinical synchronization</p>
           </div>
         </div>
 
-        <Card className="border-border/60 shadow-elevated">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-xl">Sign in</CardTitle>
-            <CardDescription>Enter your credentials to access your account</CardDescription>
-          </CardHeader>
-          <form onSubmit={handleSubmit}>
-            <CardContent className="space-y-4">
+        <div className="glass rounded-[2.5rem] border-border/40 shadow-premium overflow-hidden">
+          <div className="p-8 space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-5">
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Label htmlFor="email" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Terminal ID / Email</Label>
+                <div className="relative group">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                   <Input 
                     id="email" 
                     type="email" 
-                    placeholder="name@hospital.com" 
-                    className="pl-10" 
+                    placeholder="name@radiance.health" 
+                    className="h-12 pl-11 bg-background/50 border-border/40 rounded-2xl focus:ring-primary/20 focus:border-primary/40 transition-all" 
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
                   />
                 </div>
               </div>
+              
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password">Password</Label>
-                  <a href="#" className="text-xs text-primary hover:underline">Forgot password?</a>
+                <div className="flex items-center justify-between ml-1">
+                  <Label htmlFor="password" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Access Token</Label>
+                  <a href="#" className="text-[10px] font-black uppercase tracking-widest text-primary hover:underline underline-offset-4">Reset</a>
                 </div>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <div className="relative group">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
                   <Input 
                     id="password" 
                     type="password" 
-                    className="pl-10" 
+                    className="h-12 pl-11 bg-background/50 border-border/40 rounded-2xl focus:ring-primary/20 focus:border-primary/40 transition-all" 
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
                   />
                 </div>
               </div>
-              <Button type="submit" className="w-full rounded-full" disabled={isSubmitting}>
-                {isSubmitting ? "Signing in..." : "Sign in"}
+
+              <Button type="submit" className="w-full h-12 rounded-2xl bg-foreground text-background hover:scale-[1.02] active:scale-95 transition-all duration-300 font-black uppercase tracking-widest text-[11px] shadow-xl" disabled={isSubmitting}>
+                {isSubmitting ? "Authenticating..." : "Authorize Access"}
                 {!isSubmitting && <ArrowRight className="ml-2 h-4 w-4" />}
               </Button>
+
               {error && (
-                <p className="text-sm text-destructive text-center mt-1">{error}</p>
+                <div className="px-4 py-2 rounded-xl bg-destructive/10 border border-destructive/20">
+                  <p className="text-[10px] font-bold text-destructive text-center uppercase tracking-tight">{error}</p>
+                </div>
               )}
-            </CardContent>
-          </form>
-          <div className="px-6 pb-6 space-y-4">
-            <div className="relative">
+            </form>
+
+            <div className="relative py-4">
               <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-border/60" />
+                <span className="w-full border-t border-border/20" />
               </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
+              <div className="relative flex justify-center text-[9px] font-black uppercase tracking-[0.3em]">
+                <span className="bg-transparent px-3 text-muted-foreground/40">Alternative Gateways</span>
               </div>
             </div>
-            <Button variant="outline" className="w-full rounded-full" onClick={() => login()}>
-              Clinical Auth (Keycloak)
+
+            <Button variant="outline" className="w-full h-12 rounded-2xl border-border/40 bg-background/30 hover:bg-background/50 transition-all text-[10px] font-black uppercase tracking-widest" onClick={() => enableDevBypass()}>
+              Clinical Auth (OAuth2)
             </Button>
           </div>
-        </Card>
+          
+          <div className="bg-muted/30 p-6 border-t border-border/20 text-center">
+             <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+              New node?{" "}
+              <Link to="/signup" className="text-primary hover:underline underline-offset-4">
+                Request Provisioning
+              </Link>
+            </p>
+          </div>
+        </div>
 
-        <p className="text-center text-sm text-muted-foreground">
-          Don&apos;t have an account?{" "}
-          <Link to="/signup" className="font-medium text-primary hover:underline">
-            Request access
-          </Link>
-        </p>
-
-        <div className="pt-4 flex justify-center">
+        <div className="mt-8 flex justify-center">
           <button
             type="button"
             onClick={() => enableDevBypass()}
-            className="inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-4 py-1.5 text-xs font-medium text-primary hover:bg-primary/10 transition-colors"
+            className="group flex items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-5 py-2 text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/10 transition-all duration-500"
           >
-            <Sparkles className="h-3.5 w-3.5" />
-            <span>Dev Preview Bypass</span>
+            <Sparkles className="h-3.5 w-3.5 group-hover:rotate-12 transition-transform" />
+            <span>Developer Bypass Protocol</span>
           </button>
         </div>
       </div>
     </div>
   );
 }
+

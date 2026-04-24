@@ -11,7 +11,7 @@ import { apiFetch } from "@/lib/api";
 import { env } from "@/lib/env";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Download, Loader2, RefreshCw } from "lucide-react";
+import { Download, Loader2, RefreshCw, Filter, Calendar, Activity, Zap } from "lucide-react";
 
 const STATUS_OPTIONS: BillingLineStatus[] = ["PENDING", "LOCKED", "PAID", "VOID", "SUPERSEDED"];
 
@@ -42,11 +42,13 @@ export function BillingLinesView({ kind }: { kind: BillingLineKind }) {
 
   const markPaid = useMutation({
     mutationFn: (line: BillingLine) => billingService.markPaid(line.id),
-    onSuccess: () => { toast.success("Marked as paid"); qc.invalidateQueries({ queryKey: ["billing", "lines"] }); },
+    onSuccess: () => { 
+      toast.success("Transaction State Finalized — PAID"); 
+      qc.invalidateQueries({ queryKey: ["billing", "lines"] }); 
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  // CSV export downloaded as a blob to preserve auth header.
   const [exporting, setExporting] = useState(false);
   const exportCsv = async () => {
     setExporting(true);
@@ -62,6 +64,7 @@ export function BillingLinesView({ kind }: { kind: BillingLineKind }) {
       const blob = await res.blob();
       const today = new Date().toISOString().slice(0, 10);
       await downloadBlob(`${kind.toLowerCase()}-${today}.csv`, blob);
+      toast.success("Data Ingestion Complete — CSV Exported");
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -70,25 +73,36 @@ export function BillingLinesView({ kind }: { kind: BillingLineKind }) {
   };
 
   return (
-    <div className="space-y-4">
-      <div className="rounded-xl border border-border bg-card p-4 flex flex-wrap items-end gap-3">
-        <div className="space-y-1">
-          <label className="text-xs uppercase tracking-wider text-muted-foreground">From</label>
-          <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-[160px]" />
+    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      <div className="glass rounded-[2.5rem] border-border/40 p-6 flex flex-wrap items-center gap-6 bg-background/40 backdrop-blur-xl">
+        <div className="flex items-center gap-4 flex-wrap lg:flex-nowrap">
+          <div className="flex flex-col gap-1.5 min-w-[140px]">
+             <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 ml-1">Range Start</label>
+             <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/40" />
+                <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="h-10 pl-9 rounded-xl bg-background/50 border-border/20 text-[10px] font-black uppercase tracking-widest" />
+             </div>
+          </div>
+          <div className="flex flex-col gap-1.5 min-w-[140px]">
+             <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 ml-1">Range End</label>
+             <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/40" />
+                <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="h-10 pl-9 rounded-xl bg-background/50 border-border/20 text-[10px] font-black uppercase tracking-widest" />
+             </div>
+          </div>
         </div>
-        <div className="space-y-1">
-          <label className="text-xs uppercase tracking-wider text-muted-foreground">To</label>
-          <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-[160px]" />
-        </div>
-        <div className="space-y-1">
-          <div className="text-xs uppercase tracking-wider text-muted-foreground">Status</div>
-          <div className="flex flex-wrap gap-1">
+
+        <div className="flex flex-col gap-1.5 flex-1 min-w-[300px]">
+          <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/40 ml-1">Protocol Status Filters</label>
+          <div className="flex flex-wrap gap-1.5">
             {STATUS_OPTIONS.map((s) => (
               <button
                 key={s}
                 onClick={() => setStatus((cur) => (cur.includes(s) ? cur.filter((x) => x !== s) : [...cur, s]))}
-                className={`text-xs px-2 py-1 rounded-md border transition ${
-                  status.includes(s) ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground hover:text-foreground"
+                className={`text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg border transition-all duration-300 ${
+                  status.includes(s) 
+                    ? "border-primary bg-primary/10 text-primary scale-105" 
+                    : "border-border/20 text-muted-foreground/60 hover:text-foreground hover:bg-white/5"
                 }`}
               >
                 {s}
@@ -96,49 +110,73 @@ export function BillingLinesView({ kind }: { kind: BillingLineKind }) {
             ))}
           </div>
         </div>
-        <div className="ml-auto flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => linesQ.refetch()} disabled={linesQ.isFetching}>
-            <RefreshCw className="h-4 w-4 mr-1" /> {linesQ.isFetching ? "Refreshing…" : "Refresh"}
+
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => linesQ.refetch()} 
+            disabled={linesQ.isFetching}
+            className="h-10 px-4 rounded-xl glass border-border/40 text-[10px] font-black uppercase tracking-widest"
+          >
+            {linesQ.isFetching ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : <RefreshCw className="h-3.5 w-3.5 mr-2" />}
+            Sync
           </Button>
-          <Button size="sm" onClick={exportCsv} disabled={exporting || !linesQ.data?.items.length}>
-            <Download className="h-4 w-4 mr-1" /> {exporting ? "Exporting…" : "Export CSV"}
+          <Button 
+            size="sm" 
+            onClick={exportCsv} 
+            disabled={exporting || !linesQ.data?.items.length}
+            className="h-10 px-6 rounded-xl bg-foreground text-background text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-xl shadow-primary/5"
+          >
+            {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-2" /> : <Download className="h-3.5 w-3.5 mr-2" />}
+            Extract CSV
           </Button>
         </div>
       </div>
 
-      {linesQ.isLoading && <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>}
+      {linesQ.isLoading && (
+        <div className="glass rounded-[2.5rem] p-20 flex flex-col items-center justify-center gap-4">
+           <Loader2 className="h-10 w-10 text-primary animate-spin" />
+           <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/40 animate-pulse">Initializing Financial Audit...</span>
+        </div>
+      )}
+      
       {linesQ.error && (
-        <div className="rounded-md border border-destructive/30 bg-destructive/5 text-destructive p-4 text-sm">
-          Failed to load billing lines: {(linesQ.error as Error).message}
+        <div className="glass rounded-[2.5rem] border-destructive/20 bg-destructive/5 p-12 text-center text-destructive">
+           <p className="text-sm font-black uppercase tracking-widest text-destructive">Data Retrieval Fault</p>
+           <p className="text-[10px] font-medium mt-1">{(linesQ.error as Error).message}</p>
         </div>
       )}
 
       {linesQ.data && (
-        <>
-          <div className="flex flex-wrap gap-6 text-sm">
-            <div>
-              <div className="text-xs uppercase tracking-wider text-muted-foreground">Lines</div>
-              <div className="text-xl font-display font-semibold">{linesQ.data.total}</div>
+        <div className="space-y-8 animate-in fade-in duration-1000">
+          <div className="flex flex-wrap gap-12 px-8">
+            <div className="space-y-1.5">
+              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/40">Audit Count</div>
+              <div className="text-3xl font-display font-black text-foreground tracking-tighter">{linesQ.data.total}</div>
             </div>
             {Object.entries(linesQ.data.subtotalsByCurrency).map(([cur, total]) => (
-              <div key={cur}>
-                <div className="text-xs uppercase tracking-wider text-muted-foreground">Subtotal · {cur}</div>
-                <div className="text-xl font-display font-semibold">{formatMoney(total, cur)}</div>
+              <div key={cur} className="space-y-1.5">
+                <div className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/40">Aggregate · {cur}</div>
+                <div className="text-3xl font-display font-black text-primary tracking-tighter shadow-primary/20 drop-shadow-sm">{formatMoney(total, cur)}</div>
               </div>
             ))}
           </div>
-          <BillingLinesTable
-            lines={linesQ.data.items}
-            showParty={isAdmin}
-            canMarkPaid={isAdmin}
-            onMarkPaid={(l) => markPaid.mutate(l)}
-            markPaidPendingId={markPaid.isPending ? markPaid.variables?.id : undefined}
-          />
-        </>
+
+          <div className="glass rounded-[2.5rem] border-border/40 overflow-hidden shadow-premium relative">
+            <BillingLinesTable
+              lines={linesQ.data.items}
+              showParty={isAdmin}
+              canMarkPaid={isAdmin}
+              onMarkPaid={(l) => markPaid.mutate(l)}
+              markPaidPendingId={markPaid.isPending ? markPaid.variables?.id : undefined}
+            />
+          </div>
+        </div>
       )}
     </div>
   );
 }
 
-// Re-export apiFetch type usage to silence unused-import warning if any.
 export type _ApiFetchKeepAlive = typeof apiFetch;
+

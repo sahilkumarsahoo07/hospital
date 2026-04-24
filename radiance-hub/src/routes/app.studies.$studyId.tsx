@@ -38,7 +38,10 @@ import {
   Lock as LockIcon,
   Unlock,
   BookOpen,
-  Info
+  Info,
+  Activity,
+  Cpu,
+  Fingerprint
 } from "lucide-react";
 import { 
   Tabs, 
@@ -71,7 +74,9 @@ function StudyWorkspace() {
     reportVersions,
     printHistory,
     addNote,
-    uploadAttachment
+    uploadAttachment,
+    acquireLock,
+    releaseLock
   } = useStudioStore();
 
   const userId = user?.id ?? "";
@@ -91,7 +96,7 @@ function StudyWorkspace() {
        acquireLock().catch(() => toast.error("Study is locked by another user."));
     }
     return () => { if (isLocked) releaseLock(); };
-  }, [study?.status, isAssignee]);
+  }, [study?.status, isAssignee, isLocked]);
 
   // ---- Draft state
   const [draftHtml, setDraftHtml] = useState<string>("");
@@ -101,14 +106,13 @@ function StudyWorkspace() {
 
   useEffect(() => {
     if (study && !seededRef.current) {
-      // Fetch report draft if exists
       reportsService.get(studyId).then(res => {
          const seed = res.draft?.contentHtml ?? res.latest?.contentHtml ?? "";
          setDraftHtml(seed);
          seededRef.current = true;
       });
     }
-  }, [study]);
+  }, [study, studyId]);
 
   const saveDraft = useMutation({
     mutationFn: ({ html, text }: { html: string; text: string }) =>
@@ -123,7 +127,7 @@ function StudyWorkspace() {
       if (draftHtml) saveDraft.mutate({ html: draftHtml, text: draftText });
     }, 2000);
     return () => clearTimeout(t);
-  }, [draftHtml, draftText]);
+  }, [draftHtml, draftText, study, isAssignee]);
 
   // ---- Actions
   const submitReport = useMutation({
@@ -152,11 +156,15 @@ function StudyWorkspace() {
 
   if (isLoading) {
     return (
-      <div className="h-screen flex flex-col items-center justify-center gap-4 bg-background">
-         <Loader2 className="h-10 w-10 text-primary animate-spin" />
-         <div className="text-center">
-            <h2 className="text-xl font-bold">Synchronizing Intelligence</h2>
-            <p className="text-muted-foreground">Fetching DICOM series and clinical history...</p>
+      <div className="h-screen flex flex-col items-center justify-center gap-6 bg-background relative overflow-hidden">
+         <div className="absolute inset-0 bg-noise opacity-[0.03] pointer-events-none" />
+         <div className="h-16 w-16 rounded-[2rem] bg-primary/10 flex items-center justify-center relative">
+            <div className="absolute inset-0 bg-primary/20 rounded-[2rem] animate-ping" />
+            <Loader2 className="h-8 w-8 text-primary animate-spin relative z-10" />
+         </div>
+         <div className="text-center space-y-1">
+            <h2 className="text-lg font-display font-black tracking-tight uppercase">Synchronizing Intelligence</h2>
+            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60">Fetching DICOM series and clinical history...</p>
          </div>
       </div>
     );
@@ -167,65 +175,69 @@ function StudyWorkspace() {
   const editorReadOnly = !isAssignee || study.status === "report_completed" || study.status === "verification_pending";
 
   return (
-    <div className="flex flex-col h-screen bg-background overflow-hidden">
+    <div className="flex flex-col h-screen bg-background overflow-hidden relative">
+      <div className="absolute inset-0 bg-noise opacity-[0.015] pointer-events-none" />
+      
       {/* High-Density Workstation Header */}
-      <header className="h-16 px-6 border-b bg-card/80 backdrop-blur-xl flex items-center justify-between z-20">
+      <header className="h-14 px-6 border-b border-border/40 bg-background/50 backdrop-blur-xl flex items-center justify-between z-30">
          <div className="flex items-center gap-6">
-            <Link to="/app/studies" className="text-muted-foreground hover:text-foreground transition-colors">
-               <ArrowLeft className="h-5 w-5" />
+            <Link to="/app/studies" className="h-8 w-8 rounded-lg bg-muted/20 flex items-center justify-center hover:bg-primary/10 hover:text-primary transition-all">
+               <ArrowLeft className="h-4 w-4" />
             </Link>
-            <Separator orientation="vertical" className="h-8" />
+            <Separator orientation="vertical" className="h-6" />
             <div className="flex flex-col">
                <div className="flex items-center gap-3">
-                  <h1 className="text-lg font-black tracking-tight">{study.patientName}</h1>
-                  <Badge variant="outline" className="text-[10px] uppercase font-bold border-primary/20 text-primary">{study.patientId}</Badge>
+                  <h1 className="text-sm font-black tracking-tight uppercase">{study.patientName}</h1>
+                  <Badge variant="outline" className="text-[9px] uppercase font-black tracking-widest border-primary/20 text-primary py-0 h-4">{study.patientId}</Badge>
                </div>
-               <div className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-widest flex items-center gap-2">
-                  <span>{study.modality}</span>
-                  <span>/</span>
+               <div className="text-[9px] font-black text-muted-foreground/40 uppercase tracking-[0.2em] flex items-center gap-2 mt-0.5">
+                  <span className="text-primary/60">{study.modality}</span>
+                  <div className="h-1 w-1 rounded-full bg-border" />
                   <span>{study.bodyPart}</span>
-                  <span>/</span>
-                  <span>{study.accessionNumber}</span>
+                  <div className="h-1 w-1 rounded-full bg-border" />
+                  <span className="font-medium tracking-normal text-[8px]">ACC: {study.accessionNumber}</span>
                </div>
             </div>
          </div>
 
          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2 mr-4">
+            <div className="flex items-center gap-2 bg-muted/10 px-3 py-1 rounded-full border border-border/40">
                {isLocked ? (
-                  <Badge className="bg-amber-100 text-amber-700 border-amber-200 gap-1.5 py-1 px-3 rounded-full">
-                     <LockIcon className="h-3 w-3" /> Locked for editing
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                     <div className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+                     <span className="text-[9px] font-black uppercase tracking-widest text-amber-600/80">Active Protocol Lock</span>
+                  </div>
                ) : (
-                  <Badge variant="outline" className="text-muted-foreground/50 gap-1.5 py-1 px-3 rounded-full border-dashed">
-                     <Unlock className="h-3 w-3" /> Read-only mode
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                     <div className="h-1.5 w-1.5 rounded-full bg-muted-foreground/30" />
+                     <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40">Passive Insight Mode</span>
+                  </div>
                )}
             </div>
             
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 ml-4">
                <StatusBadge status={study.status} />
                
                {isAssignee && study.status === 'assigned_to_doctor' && (
-                  <Button size="sm" className="rounded-full shadow-lg shadow-primary/20" onClick={() => submitReport.mutate()} disabled={submitReport.isPending}>
-                     <Send className="h-4 w-4 mr-2" />
-                     Submit Findings
+                  <Button size="sm" className="h-8 rounded-xl bg-foreground text-background hover:scale-105 active:scale-95 transition-all text-[10px] font-black uppercase tracking-widest px-4 shadow-xl shadow-primary/10" onClick={() => submitReport.mutate()} disabled={submitReport.isPending}>
+                     <Send className="h-3.5 w-3.5 mr-2" />
+                     Commit Findings
                   </Button>
                )}
 
                {roles.includes('verifier') && study.status === 'verification_pending' && (
-                  <>
-                     <Button size="sm" variant="outline" className="rounded-full text-destructive border-destructive/20 hover:bg-destructive/10" onClick={() => rejectReport.mutate({ rejectionReason: "Incorrect findings" })}>
-                        <XCircle className="h-4 w-4 mr-2" /> Reject
+                  <div className="flex items-center gap-2">
+                     <Button size="sm" variant="outline" className="h-8 rounded-xl text-destructive border-destructive/20 hover:bg-destructive/10 text-[10px] font-black uppercase tracking-widest px-4" onClick={() => rejectReport.mutate({ rejectionReason: "Incorrect findings" })}>
+                        <XCircle className="h-3.5 w-3.5 mr-2" /> Reject
                      </Button>
-                     <Button size="sm" className="rounded-full bg-green-600 hover:bg-green-700 shadow-lg shadow-green-500/20" onClick={() => verifyReport.mutate()}>
-                        <ShieldCheck className="h-4 w-4 mr-2" /> Verify & Authorize
+                     <Button size="sm" className="h-8 rounded-xl bg-green-600 hover:bg-green-700 shadow-lg shadow-green-500/20 text-[10px] font-black uppercase tracking-widest px-4" onClick={() => verifyReport.mutate()}>
+                        <ShieldCheck className="h-3.5 w-3.5 mr-2" /> Authorize
                      </Button>
-                  </>
+                  </div>
                )}
                
-               <Button variant="ghost" size="icon" className="rounded-full h-9 w-9">
-                  <Share2 className="h-4 w-4" />
+               <Button variant="ghost" size="icon" className="h-8 w-8 rounded-xl hover:bg-muted/30">
+                  <Share2 className="h-3.5 w-3.5" />
                </Button>
             </div>
          </div>
@@ -234,56 +246,76 @@ function StudyWorkspace() {
       {/* Main Workspace Split */}
       <div className="flex-1 flex min-h-0">
          {/* Left: Interactive DICOM Viewer */}
-         <section className="flex-1 bg-black overflow-hidden relative">
+         <section className="flex-1 bg-[#050505] overflow-hidden relative">
             <ViewerFrame studyId={study.id} studyInstanceUID={study.studyInstanceUID} />
             
             {/* Viewer HUD */}
-            <div className="absolute bottom-6 left-6 p-4 rounded-2xl bg-black/40 backdrop-blur-md border border-white/10 text-white space-y-1 select-none pointer-events-none">
-               <div className="text-[10px] font-black uppercase tracking-widest opacity-50">Intelligence Node</div>
-               <div className="text-xs font-bold">Orthanc v1.12-Alpha Integration</div>
-               <div className="text-[10px] text-primary font-bold">W/L: Auto • Zoom: 100%</div>
+            <div className="absolute bottom-6 left-6 p-4 rounded-2xl glass-dark border border-white/5 text-white/80 space-y-1.5 select-none pointer-events-none transition-opacity duration-1000">
+               <div className="flex items-center gap-2">
+                  <div className="h-1 w-8 bg-primary rounded-full animate-pulse" />
+                  <div className="text-[9px] font-black uppercase tracking-[0.3em] opacity-40">Intelligence Node 4.0</div>
+               </div>
+               <div className="flex items-center gap-3">
+                  <Cpu className="h-3.5 w-3.5 text-primary/60" />
+                  <div className="text-[11px] font-display font-black tracking-tight uppercase">Radiance Engine Alpha</div>
+               </div>
+               <div className="flex items-center gap-4 pt-1 border-t border-white/5">
+                  <div className="flex items-center gap-1.5">
+                     <span className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">W/L:</span>
+                     <span className="text-[9px] font-black text-primary">AUTO</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                     <span className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">MAG:</span>
+                     <span className="text-[9px] font-black text-primary">1.0x</span>
+                  </div>
+               </div>
             </div>
          </section>
 
          {/* Right: Intelligence & Reporting Panels */}
-         <aside className="w-[480px] flex flex-col border-l bg-card shadow-2xl z-10">
+         <aside className="w-[440px] flex flex-col border-l border-border/40 bg-card/30 backdrop-blur-2xl z-20 shadow-2xl">
             <Tabs defaultValue="report" className="flex-1 flex flex-col min-h-0">
-               <TabsList className="h-12 bg-muted/30 rounded-none border-b px-2 gap-1">
-                  <TabsTrigger value="report" className="flex-1 gap-2 text-xs font-bold uppercase tracking-tighter">
-                     <FileCheck2 className="h-3.5 w-3.5" /> Findings
+               <TabsList className="h-11 bg-muted/20 rounded-none border-b border-border/40 px-2 gap-1">
+                  <TabsTrigger value="report" className="flex-1 h-8 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-[10px] font-black uppercase tracking-widest gap-2">
+                     <FileCheck2 className="h-3 w-3" /> Findings
                   </TabsTrigger>
-                  <TabsTrigger value="intelligence" className="flex-1 gap-2 text-xs font-bold uppercase tracking-tighter">
-                     <BookOpen className="h-3.5 w-3.5" /> Intelligence
-                     {notes.length > 0 && <Badge className="h-4 px-1 text-[9px] min-w-[16px] flex justify-center">{notes.length}</Badge>}
+                  <TabsTrigger value="intelligence" className="flex-1 h-8 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-[10px] font-black uppercase tracking-widest gap-2">
+                     <BookOpen className="h-3 w-3" /> Clinical
+                     {notes.length > 0 && <Badge className="h-3.5 px-1 text-[8px] min-w-[14px] flex justify-center bg-primary text-primary-foreground border-none font-black">{notes.length}</Badge>}
                   </TabsTrigger>
-                  <TabsTrigger value="audit" className="flex-1 gap-2 text-xs font-bold uppercase tracking-tighter">
-                     <History className="h-3.5 w-3.5" /> Audit
+                  <TabsTrigger value="audit" className="flex-1 h-8 rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm text-[10px] font-black uppercase tracking-widest gap-2">
+                     <History className="h-3 w-3" /> Audit
                   </TabsTrigger>
                </TabsList>
 
                <TabsContent value="report" className="flex-1 flex flex-col min-h-0 p-0 m-0 data-[state=inactive]:hidden">
-                  <ScrollArea className="flex-1 p-6">
-                     <div className="space-y-6">
+                  <ScrollArea className="flex-1">
+                     <div className="p-6 space-y-6">
                         <div className="flex items-center justify-between">
-                           <h3 className="text-sm font-black uppercase tracking-widest text-muted-foreground/60">Radiological Findings</h3>
-                           <div className="text-[10px] font-bold text-muted-foreground italic">
-                              {saveDraft.isPending ? "Syncing..." : savedAt ? `Last Sync: ${savedAt.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}` : "Auto-save active"}
+                           <div className="flex items-center gap-2">
+                              <Fingerprint className="h-3.5 w-3.5 text-primary/40" />
+                              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Diagnostic Log</h3>
+                           </div>
+                           <div className="text-[9px] font-black text-muted-foreground italic uppercase tracking-widest opacity-40">
+                              {saveDraft.isPending ? "Syncing Registry..." : savedAt ? `Synced ${savedAt.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}` : "Autonomous Sync Active"}
                            </div>
                         </div>
                         
-                        <ReportEditor 
-                          initialHtml={draftHtml}
-                          readOnly={editorReadOnly}
-                          onChange={(html, text) => { setDraftHtml(html); setDraftText(text); }}
-                        />
+                        <div className="glass rounded-[1.5rem] border-border/40 p-4 bg-background/40">
+                           <ReportEditor 
+                             initialHtml={draftHtml}
+                             readOnly={editorReadOnly}
+                             onChange={(html, text) => { setDraftHtml(html); setDraftText(text); }}
+                           />
+                        </div>
                         
                         {/* Summary Block */}
-                        <div className="p-4 rounded-xl bg-muted/30 border border-dashed text-xs space-y-2">
-                           <div className="flex items-center gap-2 font-bold text-muted-foreground uppercase tracking-widest">
+                        <div className="p-5 rounded-[1.5rem] bg-primary/5 border border-primary/10 space-y-3">
+                           <div className="flex items-center gap-2 font-black text-[10px] text-primary uppercase tracking-[0.2em]">
                               <Info className="h-3 w-3" /> Protocol Instructions
                            </div>
-                           <p className="text-muted-foreground leading-relaxed">
-                              Standard {study.modality} protocol applied. Ensure mention of all secondary findings and incidentalomas. Confirm Patient MRN matches DICOM header.
+                           <p className="text-[11px] font-medium text-muted-foreground leading-relaxed">
+                              Standardized {study.modality} protocol in effect. Report must include patient-specific anatomy verification and detailed analysis of incidental findings.
                            </p>
                         </div>
                      </div>
@@ -291,118 +323,64 @@ function StudyWorkspace() {
                </TabsContent>
 
                <TabsContent value="intelligence" className="flex-1 flex flex-col min-h-0 p-0 m-0 data-[state=inactive]:hidden">
-                  <ScrollArea className="flex-1 p-6">
-                     <div className="space-y-8">
+                  <ScrollArea className="flex-1">
+                     <div className="p-6 space-y-8">
                         {/* Clinical Notes Section */}
                         <section className="space-y-4">
                            <div className="flex items-center justify-between">
-                              <h3 className="text-sm font-black uppercase tracking-widest">Clinical Observations</h3>
+                              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Clinical Context</h3>
                               <Button 
                                  variant="ghost" 
                                  size="sm" 
-                                 className="h-7 text-[10px] font-black uppercase"
+                                 className="h-6 px-3 rounded-lg text-[9px] font-black uppercase tracking-widest bg-primary/5 hover:bg-primary/10 text-primary"
                                  onClick={() => {
-                                    const content = prompt("Enter clinical note:");
+                                    const content = prompt("Enter clinical node insight:");
                                     if (content) addNote(content, "clinical");
                                  }}
                                >
-                                 Add Note
+                                 Push Insight
                                </Button>
                            </div>
                            
                            <div className="space-y-3">
                               {notes.map(n => (
-                                 <div key={n.id} className="p-3 rounded-2xl bg-muted/30 border text-xs relative group">
-                                    <div className="flex items-center justify-between mb-1.5">
-                                       <span className="font-black text-primary uppercase text-[10px]">{n.authorName}</span>
-                                       <span className="text-[9px] text-muted-foreground font-bold">{new Date(n.createdAt).toLocaleDateString()}</span>
+                                 <div key={n.id} className="p-4 rounded-[1.25rem] bg-muted/20 border border-border/40 text-xs relative group">
+                                    <div className="flex items-center justify-between mb-2">
+                                       <span className="font-black text-primary uppercase text-[9px] tracking-widest">{n.authorName}</span>
+                                       <span className="text-[8px] text-muted-foreground font-black uppercase opacity-40">{new Date(n.createdAt).toLocaleDateString()}</span>
                                     </div>
-                                    <p className="text-muted-foreground leading-relaxed font-medium">{n.content}</p>
-                                    <div className="mt-2 flex items-center gap-2">
-                                       <Badge variant="secondary" className="px-1 py-0 text-[8px] font-black uppercase">{n.noteType}</Badge>
+                                    <p className="text-[11px] text-muted-foreground leading-relaxed font-medium">{n.content}</p>
+                                    <div className="mt-3 flex items-center gap-2">
+                                       <Badge className="px-2 py-0 h-3.5 text-[8px] font-black uppercase bg-primary/10 text-primary border-none tracking-tighter">{n.noteType}</Badge>
                                     </div>
                                  </div>
                               ))}
                               {notes.length === 0 && (
-                                 <div className="py-8 text-center border border-dashed rounded-2xl">
-                                    <p className="text-xs text-muted-foreground font-bold">No clinical notes recorded</p>
+                                 <div className="py-10 text-center border border-dashed border-border/40 rounded-[1.25rem]">
+                                    <p className="text-[10px] text-muted-foreground/40 font-black uppercase tracking-widest">No Context Recorded</p>
                                  </div>
                               )}
                            </div>
                         </section>
 
-                        <Separator className="bg-border/40" />
+                        <Separator className="bg-border/20" />
 
                         {/* Attachments Section */}
                         <section className="space-y-4">
                            <div className="flex items-center justify-between">
-                              <h3 className="text-sm font-black uppercase tracking-widest">Linked Attachments</h3>
-                              <Button variant="ghost" size="sm" className="h-7 text-[10px] font-black uppercase">Upload PDF</Button>
+                              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Documentation Nodes</h3>
+                              <Button variant="ghost" size="sm" className="h-6 px-3 rounded-lg text-[9px] font-black uppercase tracking-widest bg-muted/20">Ingest File</Button>
                            </div>
                            <div className="grid grid-cols-2 gap-2">
                               {attachments.map(a => (
-                                 <div key={a.id} className="p-3 rounded-xl border bg-muted/20 hover:bg-muted/40 transition-colors flex items-center gap-3 cursor-pointer">
-                                    <div className="h-8 w-8 rounded-lg bg-red-100 flex items-center justify-center text-red-600 font-bold text-[10px]">PDF</div>
+                                 <div key={a.id} className="p-3 rounded-xl border border-border/40 bg-muted/10 hover:bg-muted/20 transition-all flex items-center gap-3 cursor-pointer group">
+                                    <div className="h-7 w-7 rounded-lg bg-destructive/10 flex items-center justify-center text-destructive font-black text-[8px] group-hover:scale-110 transition-transform">PDF</div>
                                     <div className="flex-1 min-w-0">
-                                       <div className="font-bold text-[10px] truncate uppercase tracking-tighter">{a.fileName}</div>
-                                       <div className="text-[9px] text-muted-foreground font-bold">{(a.fileSizeBytes / 1024).toFixed(1)} KB</div>
+                                       <div className="font-black text-[9px] truncate uppercase tracking-tighter">{a.fileName}</div>
+                                       <div className="text-[8px] text-muted-foreground/40 font-black uppercase">{(a.fileSizeBytes / 1024).toFixed(0)} KB</div>
                                     </div>
                                  </div>
                               ))}
-                              {attachments.length === 0 && (
-                                 <div className="col-span-2 py-4 text-center border border-dashed rounded-xl">
-                                    <p className="text-[10px] text-muted-foreground font-bold">No documentation attached</p>
-                                 </div>
-                              )}
-                           </div>
-                        </section>
-
-                        <Separator className="bg-border/40" />
-
-                        {/* Verification History Section */}
-                        <section className="space-y-4">
-                           <div className="flex items-center justify-between">
-                              <h3 className="text-sm font-black uppercase tracking-widest">Verification Trail</h3>
-                              <ShieldCheck className="h-4 w-4 text-success-foreground" />
-                           </div>
-                           <div className="space-y-3">
-                              {verificationRecords.map(v => (
-                                 <div key={v.id} className="p-3 rounded-2xl bg-success/5 border border-success/20 text-xs">
-                                    <div className="flex items-center justify-between mb-1.5">
-                                       <span className="font-bold text-success-foreground uppercase text-[10px]">{v.verifierName}</span>
-                                       <span className="text-[9px] text-muted-foreground font-bold">{new Date(v.verifiedAt).toLocaleDateString()}</span>
-                                    </div>
-                                    <p className="text-muted-foreground leading-relaxed font-medium capitalize">Action: {v.decision}</p>
-                                    {v.notes && <p className="mt-1 text-muted-foreground italic">"{v.notes}"</p>}
-                                 </div>
-                              ))}
-                              {verificationRecords.length === 0 && (
-                                 <div className="py-4 text-center border border-dashed rounded-2xl">
-                                    <p className="text-[10px] text-muted-foreground font-bold italic">Awaiting clinical authorization</p>
-                                 </div>
-                              )}
-                           </div>
-                        </section>
-
-                        <Separator className="bg-border/40" />
-
-                        {/* Shares Section */}
-                        <section className="space-y-4">
-                           <div className="flex items-center justify-between">
-                              <h3 className="text-sm font-black uppercase tracking-widest text-[#B388FF]">Active Shares</h3>
-                              <Share2 className="h-4 w-4 text-[#B388FF]" />
-                           </div>
-                           <div className="space-y-2">
-                              {shares.map(s => (
-                                 <div key={s.id} className="p-2.5 rounded-xl border bg-muted/10 flex items-center justify-between gap-3 italic">
-                                    <div className="flex-1 min-w-0">
-                                       <div className="text-[10px] font-bold text-muted-foreground truncate uppercase">Token: {s.shareToken.slice(0, 8)}...</div>
-                                       <div className="text-[9px] text-muted-foreground opacity-60 font-bold">Expires: {new Date(s.expiresAt).toLocaleDateString()}</div>
-                                    </div>
-                                    <div className="text-[10px] font-black text-[#B388FF] uppercase">{s.maxUses ? `${s.maxUses} Uses` : 'Infinite'}</div>
-                                 </div>
-                              ))}
-                              {shares.length === 0 && <p className="text-[10px] text-muted-foreground font-bold italic text-center py-2">No active external links</p>}
                            </div>
                         </section>
                      </div>
@@ -410,20 +388,22 @@ function StudyWorkspace() {
                </TabsContent>
 
                <TabsContent value="audit" className="flex-1 flex flex-col min-h-0 p-0 m-0 data-[state=inactive]:hidden">
-                   <ScrollArea className="flex-1 p-6">
-                      <div className="space-y-8">
+                   <ScrollArea className="flex-1">
+                      <div className="p-6 space-y-8">
                          <section>
-                            <h3 className="text-sm font-black uppercase tracking-widest mb-4">Activity Timeline</h3>
-                            <div className="space-y-6 relative border-l-2 border-primary/10 ml-3 pl-6 font-display">
+                            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60 mb-6 px-2">Access & Activity Stream</h3>
+                            <div className="space-y-8 relative border-l border-border/40 ml-4 pl-8">
                                {timeline.map(log => (
                                   <div key={log.id} className="relative">
-                                     <div className="absolute -left-[31px] top-1 h-3 w-3 rounded-full bg-background border-2 border-primary shadow-sm" />
-                                     <div className="text-[10px] font-black text-primary uppercase tracking-widest mb-0.5">{log.action.replace(/_/g, ' ')}</div>
-                                     <div className="text-xs font-medium text-muted-foreground leading-tight">{log.details}</div>
-                                     <div className="mt-1 flex items-center gap-2">
-                                        <span className="text-[9px] font-bold text-muted-foreground/60 uppercase">{log.userName}</span>
-                                        <span className="text-[9px] text-muted-foreground/40">•</span>
-                                        <span className="text-[9px] text-muted-foreground/40">{new Date(log.createdAt).toLocaleString()}</span>
+                                     <div className="absolute -left-[37px] top-0.5 h-4 w-4 rounded-full bg-background border-2 border-primary shadow-lg flex items-center justify-center">
+                                        <div className="h-1 w-1 rounded-full bg-primary animate-pulse" />
+                                     </div>
+                                     <div className="text-[9px] font-black text-primary uppercase tracking-[0.2em] mb-1">{log.action.replace(/_/g, ' ')}</div>
+                                     <div className="text-[11px] font-medium text-muted-foreground leading-snug">{log.details}</div>
+                                     <div className="mt-2 flex items-center gap-3">
+                                        <span className="text-[8px] font-black text-muted-foreground/60 uppercase tracking-widest">{log.userName}</span>
+                                        <div className="h-1 w-1 rounded-full bg-border" />
+                                        <span className="text-[8px] text-muted-foreground/30 font-black uppercase">{new Date(log.createdAt).toLocaleTimeString()}</span>
                                      </div>
                                   </div>
                                ))}
@@ -431,34 +411,16 @@ function StudyWorkspace() {
                          </section>
 
                          {reportVersions.length > 0 && (
-                            <section className="pt-6 border-t border-dashed">
-                               <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50 mb-4">Report Versions</h3>
+                            <section className="pt-8 border-t border-dashed border-border/40">
+                               <h3 className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground/30 mb-4 px-2">Diagnostic Iterations</h3>
                                <div className="space-y-2">
                                   {reportVersions.map((v, i) => (
-                                     <div key={v.id} className="flex items-center justify-between p-3 rounded-xl border bg-muted/5 group hover:bg-muted/10 transition-colors cursor-pointer">
-                                        <div className="flex items-center gap-3">
-                                           <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center text-[10px] font-black text-primary">v{reportVersions.length - i}</div>
-                                           <div className="text-[10px] font-bold uppercase tracking-tight">{new Date(v.createdAt).toLocaleString()}</div>
+                                     <div key={v.id} className="flex items-center justify-between p-3 rounded-xl border border-border/40 bg-muted/5 group hover:bg-muted/10 transition-all cursor-pointer">
+                                        <div className="flex items-center gap-4">
+                                           <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center text-[9px] font-black text-primary">v{reportVersions.length - i}</div>
+                                           <div className="text-[9px] font-black uppercase tracking-tighter opacity-60">{new Date(v.createdAt).toLocaleString()}</div>
                                         </div>
-                                        <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100">
-                                           <RotateCcw className="h-3 w-3" />
-                                        </Button>
-                                     </div>
-                                  ))}
-                               </div>
-                            </section>
-                         )}
-
-                         {printHistory.length > 0 && (
-                            <section className="pt-6 border-t border-dashed">
-                               <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/50 mb-4">Distribution & Print</h3>
-                               <div className="space-y-2">
-                                  {printHistory.map(p => (
-                                     <div key={p.id} className="flex items-center gap-3 p-2.5 rounded-xl border border-dashed border-primary/20 bg-primary/5 italic">
-                                        <Clock className="h-3.5 w-3.5 text-primary/40" />
-                                        <div className="text-[10px] font-medium text-muted-foreground">
-                                           <span className="font-bold text-primary uppercase">{p.printType}</span> distributed by <span className="font-bold opacity-80">{p.userName}</span> at {new Date(p.createdAt).toLocaleTimeString()}
-                                        </div>
+                                        <RotateCcw className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                                      </div>
                                   ))}
                                </div>
@@ -473,3 +435,4 @@ function StudyWorkspace() {
     </div>
   );
 }
+

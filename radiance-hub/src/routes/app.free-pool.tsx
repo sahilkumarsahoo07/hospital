@@ -9,7 +9,7 @@ import { StudyTable } from "@/components/workflow/StudyTable";
 import { ModalityFilter } from "@/components/workflow/ModalityFilter";
 import { AssignDialog } from "@/components/workflow/AssignDialog";
 import { Button } from "@/components/ui/button";
-import { Loader2, HandIcon, UserPlus } from "lucide-react";
+import { Loader2, HandIcon, UserPlus, Zap, Cpu, Activity, Globe, RefreshCw, Layers } from "lucide-react";
 
 export const Route = createFileRoute("/app/free-pool")({ component: FreePoolPage });
 
@@ -30,63 +30,127 @@ function FreePoolPage() {
 
   const claim = useMutation({
     mutationFn: (id: string) => studiesService.claim(id),
-    onSuccess: () => { toast.success("Study claimed"); qc.invalidateQueries({ queryKey: ["free-pool"] }); qc.invalidateQueries({ queryKey: ["studies"] }); },
+    onSuccess: () => { 
+      toast.success("Protocol Claimed — Assignment state synchronized"); 
+      qc.invalidateQueries({ queryKey: ["free-pool"] }); 
+      qc.invalidateQueries({ queryKey: ["studies"] }); 
+    },
     onError: (e: Error) => toast.error(e.message),
   });
+  
   const assign = useMutation({
     mutationFn: ({ id, assigneeId }: { id: string; assigneeId: string }) => studiesService.assign(id, assigneeId),
-    onSuccess: () => { toast.success("Study assigned"); qc.invalidateQueries({ queryKey: ["free-pool"] }); qc.invalidateQueries({ queryKey: ["studies"] }); },
+    onSuccess: () => { 
+      toast.success("Manual Assignment Finalized"); 
+      qc.invalidateQueries({ queryKey: ["free-pool"] }); 
+      qc.invalidateQueries({ queryKey: ["studies"] }); 
+    },
     onError: (e: Error) => toast.error(e.message),
   });
 
   return (
-    <div className="p-8 max-w-7xl mx-auto w-full">
-      <header className="mb-6">
-        <p className="text-xs uppercase tracking-wider text-muted-foreground">Workflow</p>
-        <h1 className="text-3xl font-display font-bold tracking-tight mt-1">Free Pool</h1>
-        <p className="text-muted-foreground mt-2 text-sm">
-          Unassigned studies awaiting a radiologist.{" "}
-          {isRad ? "Filter by modality and claim what matches your specialty." : "Assign to an approved radiologist."}
-        </p>
-      </header>
-
-      <div className="rounded-xl border border-border bg-card p-4 mb-4 flex items-center justify-between gap-4 flex-wrap">
-        <ModalityFilter selected={modality} onChange={setModality} />
-        <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
-          {isFetching ? "Refreshing…" : "Refresh"}
-        </Button>
-      </div>
-
-      {isLoading && <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading free pool…</div>}
-      {error && (
-        <div className="rounded-md border border-destructive/30 bg-destructive/5 text-destructive p-4 text-sm">
-          Failed to load free pool: {(error as Error).message}.
-        </div>
-      )}
-
-      {data && (
-        <StudyTable
-          studies={data.items}
-          roles={roles}
-          emptyHint="The free pool is empty for the selected filters."
-          renderActions={(s) => (
-            <div className="flex justify-end gap-2">
-              {isRad && (
-                <Button size="sm" disabled={claim.isPending} onClick={() => claim.mutate(s.id)}>
-                  <HandIcon className="h-4 w-4 mr-1" /> Claim
-                </Button>
-              )}
-              {isAdmin && (
-                <AssignDialog
-                  trigger={<Button size="sm" variant="outline"><UserPlus className="h-4 w-4 mr-1" /> Assign</Button>}
-                  pending={assign.isPending}
-                  onAssign={(assigneeId) => assign.mutate({ id: s.id, assigneeId })}
-                />
-              )}
+    <div className="flex-1 flex flex-col min-h-0 bg-background relative overflow-hidden">
+      <div className="absolute inset-0 bg-noise opacity-[0.02] pointer-events-none" />
+      
+      <main className="flex-1 overflow-auto p-8 relative z-10">
+        <div className="max-w-[1600px] mx-auto space-y-10">
+          
+          <header className="flex flex-col lg:flex-row lg:items-end justify-between gap-8">
+            <div className="space-y-4">
+               <div className="flex items-center gap-3">
+                  <div className="h-8 w-8 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20">
+                     <Layers className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="flex flex-col">
+                     <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">Unassigned Ingestion</span>
+                     <div className="flex items-center gap-2 mt-0.5">
+                        <div className="h-1 w-1 rounded-full bg-primary animate-pulse" />
+                        <span className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Real-time Stream Active</span>
+                     </div>
+                  </div>
+               </div>
+               <h1 className="text-5xl font-display font-black tracking-tighter text-foreground leading-[0.9]">
+                  Free Pool <span className="text-primary/40 block mt-2 text-3xl">Specialty Harvesting Queue</span>
+               </h1>
             </div>
-          )}
-        />
-      )}
+            
+            <div className="flex flex-col items-start lg:items-end gap-2 max-w-sm">
+               <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 leading-relaxed lg:text-right">
+                  {isRad ? "Initialize diagnostic protocol by claiming studies that match your specialty matrix." : "Administrative override for manual study routing and clinical assignment."}
+               </p>
+            </div>
+          </header>
+
+          <div className="glass rounded-[2rem] border-border/40 p-5 flex items-center justify-between gap-6 flex-wrap bg-background/40 backdrop-blur-xl shadow-premium">
+            <div className="flex items-center gap-4">
+               <div className="h-8 w-1 rounded-full bg-primary/20" />
+               <ModalityFilter selected={modality} onChange={setModality} />
+            </div>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => refetch()} 
+              disabled={isFetching}
+              className="h-11 px-6 rounded-xl glass border-border/40 text-[10px] font-black uppercase tracking-widest hover:bg-foreground hover:text-background transition-all"
+            >
+              {isFetching ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+              Re-Sync Ingestion
+            </Button>
+          </div>
+
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+            {isLoading ? (
+               <div className="glass rounded-[3rem] p-32 flex flex-col items-center justify-center gap-6">
+                  <Loader2 className="h-12 w-12 text-primary animate-spin" />
+                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/30 animate-pulse">Initializing Stream Buffer...</span>
+               </div>
+            ) : error ? (
+               <div className="glass rounded-[2.5rem] border-destructive/20 bg-destructive/5 p-12 text-center">
+                  <p className="text-sm font-black uppercase tracking-widest text-destructive">Ingestion Protocol Failure</p>
+                  <p className="text-[10px] font-medium text-destructive/60 mt-2">{(error as Error).message}</p>
+               </div>
+            ) : (
+              <div className="glass rounded-[2.5rem] border-border/40 overflow-hidden shadow-premium relative bg-background/40">
+                <StudyTable
+                  studies={data?.items || []}
+                  roles={roles}
+                  emptyHint="Registry partition is clear for selected modality filters."
+                  renderActions={(s) => (
+                    <div className="flex justify-end gap-2">
+                      {isRad && (
+                        <Button 
+                          size="sm" 
+                          disabled={claim.isPending} 
+                          onClick={() => claim.mutate(s.id)}
+                          className="h-8 px-4 rounded-lg bg-foreground text-background text-[9px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-xl shadow-primary/5"
+                        >
+                          <HandIcon className="h-3.5 w-3.5 mr-2" /> Claim Protocol
+                        </Button>
+                      )}
+                      {isAdmin && (
+                        <AssignDialog
+                          trigger={
+                             <Button 
+                               size="sm" 
+                               variant="ghost" 
+                               className="h-8 px-4 rounded-lg glass border-border/40 text-[9px] font-black uppercase tracking-widest hover:bg-primary/10 hover:text-primary transition-all"
+                             >
+                                <UserPlus className="h-3.5 w-3.5 mr-2" /> Route Study
+                             </Button>
+                          }
+                          pending={assign.isPending}
+                          onAssign={(assigneeId) => assign.mutate({ id: s.id, assigneeId })}
+                        />
+                      )}
+                    </div>
+                  )}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      </main>
     </div>
   );
 }
+

@@ -1,12 +1,10 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuthStore } from "@/lib/stores/authStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowRight, Building, Mail, User, ShieldCheck } from "lucide-react";
-import logo from "@/assets/aspire-logo.png";
+import { ArrowRight, Building, Mail, User, ShieldCheck, Activity } from "lucide-react";
 
 export const Route = createFileRoute("/signup")({
   component: SignupPage,
@@ -16,6 +14,15 @@ function SignupPage() {
   const { setSession, isAuthenticated } = useAuthStore();
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      setMousePos({ x: e.clientX, y: e.clientY });
+    };
+    window.addEventListener("mousemove", handleMouseMove);
+    return () => window.removeEventListener("mousemove", handleMouseMove);
+  }, []);
 
   const enableDevBypass = () => {
     setSession("dev-token", { 
@@ -27,7 +34,6 @@ function SignupPage() {
     void navigate({ to: "/app" });
   };
 
-  // If already authenticated, redirect to app
   if (isAuthenticated) {
     void navigate({ to: "/app" });
   }
@@ -35,7 +41,6 @@ function SignupPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
-    // Mock successful signup for now
     setTimeout(() => {
       enableDevBypass();
       void navigate({ to: "/app" });
@@ -43,81 +48,98 @@ function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen grid place-items-center bg-background p-6">
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top_right,_var(--primary)_0%,_transparent_50%)] opacity-10" />
-      <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_bottom_left,_var(--accent)_0%,_transparent_50%)] opacity-10" />
-      
-      <div className="w-full max-w-md space-y-8">
-        <div className="flex flex-col items-center text-center space-y-4">
-          <Link to="/" className="flex items-center gap-2 group">
-            <img src={logo} alt="Aspire" width={48} height={48} className="h-12 w-12 transition-transform group-hover:scale-105" />
+    <div className="min-h-screen grid place-items-center bg-background text-foreground antialiased selection:bg-primary selection:text-white overflow-hidden relative py-20">
+      {/* NOISE & GLOW LAYER */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
+         <div className="absolute inset-0 bg-noise mix-blend-overlay opacity-[0.03] dark:opacity-[0.07]" />
+         <div className="absolute inset-0 bg-mesh animate-mesh opacity-20" />
+         <div 
+           className="absolute w-[600px] h-[600px] bg-accent/10 blur-[120px] rounded-full transition-transform duration-1000 ease-out"
+           style={{ 
+             transform: `translate(${mousePos.x - 300}px, ${mousePos.y - 300}px)`,
+           }}
+         />
+      </div>
+
+      <div className="relative z-10 w-full max-w-[480px] p-6">
+        <div className="flex flex-col items-center mb-10">
+          <Link to="/" className="flex items-center gap-3 group mb-6">
+            <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center rotate-3 group-hover:rotate-0 transition-all duration-500 shadow-lg shadow-primary/20">
+               <Activity className="h-5 w-5 text-primary-foreground" />
+            </div>
+            <span className="font-display font-black tracking-tighter text-2xl uppercase italic">Radiance</span>
           </Link>
-          <div className="space-y-1">
-            <h1 className="text-3xl font-display font-bold tracking-tight">Join Aspire</h1>
-            <p className="text-muted-foreground">Request access to the clinical reporting hub</p>
+          <div className="space-y-1 text-center">
+            <h1 className="text-3xl font-display font-black tracking-tight">Node Provisioning</h1>
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Register new clinical diagnostic node</p>
           </div>
         </div>
 
-        <Card className="border-border/60 shadow-elevated">
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-xl">Request access</CardTitle>
-            <CardDescription>Join our network of elite clinicians</CardDescription>
-          </CardHeader>
-          <form onSubmit={handleSubmit}>
-            <CardContent className="space-y-4">
+        <div className="glass rounded-[2.5rem] border-border/40 shadow-premium overflow-hidden">
+          <div className="p-8 space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-5">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="first-name">First name</Label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                    <Input id="first-name" placeholder="Sahil" className="pl-10" required />
+                  <Label htmlFor="first-name" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Given Name</Label>
+                  <div className="relative group">
+                    <User className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                    <Input id="first-name" placeholder="Sahil" className="h-11 pl-11 bg-background/50 border-border/40 rounded-2xl focus:ring-primary/20 focus:border-primary/40 transition-all" required />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="last-name">Last name</Label>
-                  <Input id="last-name" placeholder="Sahoo" required />
+                  <Label htmlFor="last-name" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Surname</Label>
+                  <Input id="last-name" placeholder="Sahoo" className="h-11 bg-background/50 border-border/40 rounded-2xl focus:ring-primary/20 focus:border-primary/40 transition-all" required />
                 </div>
               </div>
+
               <div className="space-y-2">
-                <Label htmlFor="email">Work Email</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input id="email" type="email" placeholder="name@hospital.com" className="pl-10" required />
+                <Label htmlFor="email" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Clinical Email</Label>
+                <div className="relative group">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                  <Input id="email" type="email" placeholder="name@hospital.com" className="h-11 pl-11 bg-background/50 border-border/40 rounded-2xl focus:ring-primary/20 focus:border-primary/40 transition-all" required />
                 </div>
               </div>
+
               <div className="space-y-2">
-                <Label htmlFor="organization">Organization / Hospital</Label>
-                <div className="relative">
-                  <Building className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input id="organization" placeholder="Radiance Health" className="pl-10" required />
+                <Label htmlFor="organization" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Organization / Entity</Label>
+                <div className="relative group">
+                  <Building className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                  <Input id="organization" placeholder="Radiance Health" className="h-11 pl-11 bg-background/50 border-border/40 rounded-2xl focus:ring-primary/20 focus:border-primary/40 transition-all" required />
                 </div>
               </div>
+
               <div className="space-y-2">
-                <Label htmlFor="license">Medical License ID (Optional)</Label>
-                <div className="relative">
-                  <ShieldCheck className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input id="license" placeholder="MC-123456" className="pl-10" />
+                <Label htmlFor="license" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Medical License Identifier</Label>
+                <div className="relative group">
+                  <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                  <Input id="license" placeholder="MC-123456" className="h-11 pl-11 bg-background/50 border-border/40 rounded-2xl focus:ring-primary/20 focus:border-primary/40 transition-all" />
                 </div>
               </div>
-              <Button type="submit" className="w-full rounded-full" disabled={isSubmitting}>
-                {isSubmitting ? "Submitting request..." : "Request Access"}
+
+              <Button type="submit" className="w-full h-12 rounded-2xl bg-foreground text-background hover:scale-[1.02] active:scale-95 transition-all duration-300 font-black uppercase tracking-widest text-[11px] shadow-xl" disabled={isSubmitting}>
+                {isSubmitting ? "Processing..." : "Submit Access Request"}
                 {!isSubmitting && <ArrowRight className="ml-2 h-4 w-4" />}
               </Button>
-            </CardContent>
-          </form>
-          <CardFooter className="flex flex-col space-y-2 text-xs text-center text-muted-foreground border-t border-border/40 pt-6">
-            <p>By requesting access, you agree to our Terms of Service and Privacy Policy.</p>
-          </CardFooter>
-        </Card>
+            </form>
+          </div>
+          
+          <div className="bg-muted/30 p-6 border-t border-border/20 text-center">
+             <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+              Existing node?{" "}
+              <Link to="/login" className="text-primary hover:underline underline-offset-4">
+                Initialize Login
+              </Link>
+            </p>
+          </div>
+        </div>
 
-        <p className="text-center text-sm text-muted-foreground">
-          Already have an account?{" "}
-          <Link to="/login" className="font-medium text-primary hover:underline">
-            Sign in
-          </Link>
-        </p>
-
+        <div className="mt-8 text-center px-10">
+          <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/40 leading-relaxed">
+            By submitting, you agree to the Radiance Protocol Data Governance and Security Standards.
+          </p>
+        </div>
       </div>
     </div>
   );
 }
+
